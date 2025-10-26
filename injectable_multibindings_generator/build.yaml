@@ -8,7 +8,5 @@ targets:
         options:
           build_extensions:
             ".dart": [".multibindings.dart"]
-        runs_before:
-          - injectable_generator:injectable_builder
-          - injectable_generator:injectable_config_builder
+      
 
