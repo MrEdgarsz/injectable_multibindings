@@ -113,3 +113,4 @@ You can have multiple files with `part` directives:
 - Check that generated modules are in scope
 - Verify GetIt initialization runs after code generation
 
+

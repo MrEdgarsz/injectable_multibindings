@@ -70,3 +70,4 @@ void main() {
   final services = getIt<NotificationServiceBindingsModule>().multiBindings;
   print('Total services: ${services.length}');
 }
+
