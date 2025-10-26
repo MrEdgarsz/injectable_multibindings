@@ -1,0 +1,10 @@
+{
+    "folders": [
+        {
+            "path": "injectable_multibindings"
+        },
+        {
+            "path": "injectable_multibindings_generator"
+        }
+    ]
+}

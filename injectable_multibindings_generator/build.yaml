@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      injectable_multibindings_generator:multibinding:
+        enabled: true
+        # Run before injectable_generator
+        options:
+          build_extensions:
+            ".dart": [".multibindings.dart"]
+

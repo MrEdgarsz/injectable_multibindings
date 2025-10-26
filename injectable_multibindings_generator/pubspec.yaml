@@ -1,0 +1,19 @@
+name: injectable_multibindings_generator
+description: Code generator for injectable_multibindings. Automatically generates injectable modules that collect multiple implementations of the same interface.
+version: 1.0.0
+homepage: https://github.com/yourusername/injectable_multibindings
+repository: https://github.com/yourusername/injectable_multibindings
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  injectable_multibindings:
+    path: ../injectable_multibindings
+  build: ^2.4.0
+  source_gen: ^1.4.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.24.0
+  build_runner: ^2.4.0
