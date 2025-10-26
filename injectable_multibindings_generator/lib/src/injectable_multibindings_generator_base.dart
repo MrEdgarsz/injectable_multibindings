@@ -9,6 +9,22 @@ import 'package:source_gen/source_gen.dart';
 class MultibindingGenerator extends Generator {
   @override
   FutureOr<String> generate(LibraryReader library, BuildStep buildStep) async {
+    // Check if this file has @HasMultibindings annotation
+    bool hasHasMultibindings = false;
+    for (final element in library.allElements) {
+      if (element is FunctionElement) {
+        final annotation = _getHasMultibindingsAnnotation(element);
+        if (annotation != null) {
+          hasHasMultibindings = true;
+          break;
+        }
+      }
+    }
+
+    if (!hasHasMultibindings) {
+      return '';
+    }
+
     // Find all classes annotated with @MultiBinding
     final multibindingClasses = <ClassElement>[];
 
@@ -75,6 +91,10 @@ class MultibindingGenerator extends Generator {
     buffer.writeln('// GENERATED CODE - DO NOT MODIFY MANUALLY');
     buffer.writeln('// This module provides multibindings for annotated classes');
     buffer.writeln();
+    buffer.writeln("import 'package:get_it/get_it.dart' as i1;");
+    buffer.writeln();
+    buffer.writeln('final getIt = i1.GetIt.instance;');
+    buffer.writeln();
 
     for (final entry in bindingsByType.entries) {
       final interfaceName = entry.key;
@@ -97,9 +117,21 @@ class MultibindingGenerator extends Generator {
         final scopeBindings = bindingsByScope[scope]!;
         final scopeSuffix = scope != null ? '_${scope}' : '';
 
-        buffer.writeln('@module');
         buffer.writeln('abstract class ${simpleInterfaceName}BindingsModule$scopeSuffix {');
-        buffer.writeln('  @singleton');
+        buffer.writeln('  factory ${simpleInterfaceName}BindingsModule$scopeSuffix() => ');
+        buffer.writeln('      _${simpleInterfaceName}BindingsModule$scopeSuffix();');
+        buffer.writeln();
+        buffer.writeln('  List<$interfaceName> get multiBindings;');
+        buffer.writeln('}');
+        buffer.writeln();
+
+        // Implementation
+        buffer.writeln('class _${simpleInterfaceName}BindingsModule$scopeSuffix');
+        buffer.writeln('    implements ${simpleInterfaceName}BindingsModule$scopeSuffix {');
+        buffer.writeln('  _${simpleInterfaceName}BindingsModule$scopeSuffix();');
+        buffer.writeln();
+
+        buffer.writeln('  @override');
         buffer.writeln('  List<$interfaceName> get multiBindings => [');
 
         for (final impl in scopeBindings) {
@@ -133,6 +165,23 @@ class MultibindingGenerator extends Generator {
 
   ConstantReader? _getMultiBindingAnnotation(ClassElement element) {
     const typeChecker = TypeChecker.fromRuntime(MultiBinding);
+
+    for (final annotation in element.metadata) {
+      final annotationValue = annotation.computeConstantValue();
+      if (annotationValue == null) continue;
+
+      final annotationElement = annotationValue.type?.element;
+      if (annotationElement == null) continue;
+
+      if (typeChecker.isExactly(annotationElement)) {
+        return ConstantReader(annotationValue);
+      }
+    }
+    return null;
+  }
+
+  ConstantReader? _getHasMultibindingsAnnotation(FunctionElement element) {
+    const typeChecker = TypeChecker.fromRuntime(HasMultibindings);
 
     for (final annotation in element.metadata) {
       final annotationValue = annotation.computeConstantValue();

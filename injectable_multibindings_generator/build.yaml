@@ -3,8 +3,12 @@ targets:
     builders:
       injectable_multibindings_generator:multibinding:
         enabled: true
-        # Run before injectable_generator
+        generate_for:
+          - lib/**/*.dart
         options:
           build_extensions:
             ".dart": [".multibindings.dart"]
+        runs_before:
+          - injectable_generator:injectable_builder
+          - injectable_generator:injectable_config_builder
 

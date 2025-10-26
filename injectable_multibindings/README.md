@@ -34,6 +34,8 @@ Then run:
 dart pub get
 ```
 
+The generator automatically runs before `injectable_generator` using `runs_before` configuration - no additional setup needed!
+
 ## Quick Start
 
 ### 1. Define your interface
@@ -78,29 +80,53 @@ class SMSNotificationService implements NotificationService {
 }
 ```
 
-### 3. Run code generation
+### 3. Mark your configuration function
+
+Add `@HasMultibindings()` to your injectable configuration function:
+
+```dart
+import 'package:injectable_multibindings/injectable_multibindings.dart';
+
+@HasMultibindings()
+@InjectableInit()
+void configureDependencies() {
+  getIt.init();
+}
+```
+
+This tells the generator to create `configure.multibindings.dart` in the same directory.
+
+### 4. Run code generation
 
 ```bash
 dart run build_runner build
 ```
 
-### 4. Use the generated modules
+This generates `configure.multibindings.dart` with the multibinding modules.
 
-The generator creates a module file (`.multibindings.dart`) that provides a list of all implementations:
+### 5. Import and use the generated modules
+
+Import the generated file and use the abstract class:
 
 ```dart
-@module
+import 'configure.multibindings.dart';
+
+// Use the factory to get an instance
+final module = NotificationServiceBindingsModule();
+final services = module.multiBindings;
+```
+
+The generator creates abstract classes with factory constructors:
+
+```dart
 abstract class NotificationServiceBindingsModule {
-  @singleton
-  List<NotificationService> get multiBindings => [
-    getIt<EmailNotificationService>(),
-    getIt<PushNotificationService>(),
-    getIt<SMSNotificationService>(),
-  ];
+  factory NotificationServiceBindingsModule() => _NotificationServiceBindingsModule();
+  
+  List<NotificationService> get multiBindings;
 }
 ```
 
-### 5. Inject and use
+### 6. Inject and use
 
 ```dart
 @injectable
@@ -116,6 +142,15 @@ class NotificationManager {
   }
 }
 ```
+
+## Important: File Control
+
+The generator uses the `@HasMultibindings()` annotation to determine:
+- **Where** to generate the `.multibindings.dart` file
+- **What filename** to use (matches the source file)
+- Generated files are **standalone** and can be imported directly
+
+See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for detailed explanation.
 
 ## Scoped Multibindings
 
@@ -225,6 +260,8 @@ class MyImplementation implements MyInterface {}
 ## Examples
 
 See the [example](example/) directory for complete examples.
+
+For detailed usage instructions including file control and part directives, see [USAGE.md](../USAGE.md).
 
 ## Contributing
 
