@@ -1,6 +1,6 @@
 name: injectable_multibindings
 description: Multibinding support for injectable dependency injection. Automatically collect multiple implementations of the same interface into lists.
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/yourusername/injectable_multibindings
 repository: https://github.com/yourusername/injectable_multibindings
 

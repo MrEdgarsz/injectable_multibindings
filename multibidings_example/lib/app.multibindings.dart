@@ -18,6 +18,5 @@ extension ConfigureMultibindings on i1.GetIt {
     registerFactory<NotificationService>(() => getIt<PushService>());
     registerFactory<NotificationService>(() => getIt<SMSService>());
     registerFactory<Iterable<NotificationService>>(() => getAll<NotificationService>());
-
   }
 }
