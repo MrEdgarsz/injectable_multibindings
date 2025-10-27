@@ -14,9 +14,9 @@ final getIt = i1.GetIt.instance;
 extension ConfigureMultibindings on i1.GetIt {
   void configureMultibindings() {
     // Register multibindings for NotificationService
-    registerLazySingleton<NotificationService>(() => getIt<EmailService>());
-    registerLazySingleton<NotificationService>(() => getIt<PushService>());
-    registerLazySingleton<NotificationService>(() => getIt<SMSService>());
+    registerFactory<NotificationService>(() => getIt<EmailService>());
+    registerFactory<NotificationService>(() => getIt<PushService>());
+    registerFactory<NotificationService>(() => getIt<SMSService>());
     registerFactory<Iterable<NotificationService>>(() => getAll<NotificationService>());
 
   }

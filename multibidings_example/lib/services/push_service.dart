@@ -3,7 +3,7 @@ import 'package:injectable/injectable.dart';
 import '../notification_service.dart';
 
 @MultiBinding()
-@injectable
+@Singleton()
 class PushService implements NotificationService {
   @override
   void send(String message) {

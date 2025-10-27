@@ -27,9 +27,9 @@ extension GetItInjectableX on _i174.GetIt {
       environment,
       environmentFilter,
     );
-    gh.factory<_i57.EmailService>(() => _i57.EmailService());
-    gh.factory<_i958.PushService>(() => _i958.PushService());
     gh.factory<_i149.SMSService>(() => _i149.SMSService());
+    gh.singleton<_i958.PushService>(() => _i958.PushService());
+    gh.lazySingleton<_i57.EmailService>(() => _i57.EmailService());
     gh.factory<_i846.NotificationManager>(() =>
         _i846.NotificationManager(gh<Iterable<_i709.NotificationService>>()));
     return this;

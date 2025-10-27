@@ -59,43 +59,9 @@ class MultibindingBuilder implements Builder {
     return false;
   }
 
-  String _extractRegistrationStrategy(ClassElement element) {
-    // Look for @injectable annotation
-    for (final annotation in element.metadata) {
-      final annotationValue = annotation.computeConstantValue();
-      if (annotationValue == null) continue;
-
-      final annotationElement = annotationValue.type?.element;
-      if (annotationElement == null) continue;
-
-      final annotationName = annotationElement.name?.toLowerCase() ?? '';
-
-      // Check for factory (explicit)
-      if (annotationName == 'factory') {
-        return 'Factory';
-      }
-
-      // Check for singleton
-      if (annotationName == 'singleton') {
-        return 'Singleton';
-      }
-
-      // Check for lazySingleton
-      if (annotationName == 'lazysingleton') {
-        return 'LazySingleton';
-      }
-
-      // Check for injectable (defaults to factory)
-      if (annotationName == 'injectable') {
-        return 'Factory';
-      }
-    }
-    return 'Factory'; // Default to factory
-  }
-
   Future<String> _generateMultibindings(BuildStep buildStep) async {
     // Collect all multibinding classes from all libraries
-    final multibindingClasses = <_MultibindingClass>[];
+    final multibindingClasses = <ClassElement>[];
 
     // Scan ALL Dart files in the lib directory, not just imports
     final allAssets = await buildStep.findAssets(Glob('lib/**/*.dart')).toList();
@@ -107,6 +73,8 @@ class MultibindingBuilder implements Builder {
         for (final unit in library.units) {
           for (final element in unit.classes) {
             const typeChecker = TypeChecker.fromRuntime(MultiBinding);
+            bool hasMultiBinding = false;
+
             for (final annotation in element.metadata) {
               final annotationValue = annotation.computeConstantValue();
               if (annotationValue == null) continue;
@@ -115,10 +83,13 @@ class MultibindingBuilder implements Builder {
               if (annotationElement == null) continue;
 
               if (typeChecker.isExactly(annotationElement)) {
-                // Extract registration strategy from @injectable annotation
-                final strategy = _extractRegistrationStrategy(element);
-                multibindingClasses.add(_MultibindingClass(element: element, strategy: strategy));
+                hasMultiBinding = true;
+                break;
               }
+            }
+
+            if (hasMultiBinding) {
+              multibindingClasses.add(element);
             }
           }
         }
@@ -133,10 +104,9 @@ class MultibindingBuilder implements Builder {
     }
 
     // Group by interface type
-    final bindingsByType = <String, List<_ImplementationInfo>>{};
+    final bindingsByType = <String, List<String>>{};
 
-    for (final bindingClass in multibindingClasses) {
-      final classElement = bindingClass.element;
+    for (final classElement in multibindingClasses) {
       final implementedTypes =
           classElement.allSupertypes
               .where((type) => type.element != classElement)
@@ -151,14 +121,13 @@ class MultibindingBuilder implements Builder {
         if (!bindingsByType.containsKey(typeName)) {
           bindingsByType[typeName] = [];
         }
-        bindingsByType[typeName]!.add(_ImplementationInfo(className: className, strategy: bindingClass.strategy));
+        bindingsByType[typeName]!.add(className);
       }
     }
 
     // Collect imports
     final imports = <String>{};
-    for (final bindingClass in multibindingClasses) {
-      final element = bindingClass.element;
+    for (final element in multibindingClasses) {
       final source = element.source;
       final uri = source.uri;
       if (uri.isScheme('package')) {
@@ -234,9 +203,8 @@ class MultibindingBuilder implements Builder {
       buffer.writeln('    // Register multibindings for $interfaceName');
       for (final impl in implementations) {
         // Register each implementation type as the interface type
-        // Respect the original registration strategy
-        final strategy = impl.strategy;
-        buffer.writeln('    register$strategy<$interfaceName>(() => getIt<${impl.className}>());');
+        // Using Factory here - getIt<Impl>() respects the original registration strategy
+        buffer.writeln('    registerFactory<$interfaceName>(() => getIt<${impl}>());');
       }
 
       // Register factory for Iterable<T> using getAll
@@ -249,18 +217,4 @@ class MultibindingBuilder implements Builder {
 
     return buffer.toString();
   }
-}
-
-class _MultibindingClass {
-  final ClassElement element;
-  final String strategy;
-
-  _MultibindingClass({required this.element, required this.strategy});
-}
-
-class _ImplementationInfo {
-  final String className;
-  final String strategy;
-
-  _ImplementationInfo({required this.className, required this.strategy});
 }
