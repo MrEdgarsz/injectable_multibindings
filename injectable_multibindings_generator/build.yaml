@@ -1,3 +1,11 @@
+builders:
+  multibinding:
+    import: "package:injectable_multibindings_generator/injectable_multibindings_generator_builder.dart"
+    builder_factories: ["multibindingBuilder"]
+    build_extensions: {".dart": [".multibindings.dart"]}
+    auto_apply: dependents
+    build_to: source
+
 targets:
   $default:
     builders:
@@ -5,8 +13,3 @@ targets:
         enabled: true
         generate_for:
           - lib/**/*.dart
-        options:
-          build_extensions:
-            ".dart": [".multibindings.dart"]
-      
-

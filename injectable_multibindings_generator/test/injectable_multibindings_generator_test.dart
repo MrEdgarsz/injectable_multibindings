@@ -1,14 +1,22 @@
 import 'package:injectable_multibindings/injectable_multibindings.dart';
 import 'package:injectable_multibindings_generator/injectable_multibindings_generator.dart';
-import 'package:source_gen/source_gen.dart';
+import 'package:build/build.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('MultibindingGenerator', () {
-    test('Generator exists and can be instantiated', () {
-      final generator = MultibindingGenerator();
-      expect(generator, isNotNull);
-      expect(generator, isA<Generator>());
+  group('MultibindingBuilder', () {
+    test('Builder exists and can be instantiated', () {
+      final builder = MultibindingBuilder();
+      expect(builder, isNotNull);
+      expect(builder, isA<Builder>());
+    });
+
+    test('Builder has correct build extensions', () {
+      final builder = MultibindingBuilder();
+      final extensions = builder.buildExtensions;
+      expect(extensions, isNotNull);
+      expect(extensions['.dart'], isNotNull);
+      expect(extensions['.dart']!.contains('.multibindings.dart'), isTrue);
     });
   });
 

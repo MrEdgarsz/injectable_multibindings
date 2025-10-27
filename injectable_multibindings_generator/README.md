@@ -3,11 +3,14 @@
 [![pub package](https://img.shields.io/pub/v/injectable_multibindings_generator.svg)](https://pub.dev/packages/injectable_multibindings_generator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Code generator for [injectable_multibindings](../injectable_multibindings) package. Automatically generates injectable modules that collect multiple implementations of the same interface.
+Code generator for [injectable_multibindings](../injectable_multibindings) package. Generates GetIt extension methods that enable multibinding support using GetIt's native `getAll<T>()` functionality.
 
 ## Overview
 
-This package contains the build-time code generator that scans for `@MultiBinding` annotations and generates injectable-compatible modules with Lists of implementations.
+This package contains the build-time code generator that:
+1. Scans all files in `lib/` directory for `@MultiBinding` annotations
+2. Groups implementations by their interface types
+3. Generates GetIt extension methods for multibinding configuration
 
 ## Installation
 
@@ -26,61 +29,51 @@ dev_dependencies:
 
 ### 1. Scanning
 
-The generator scans all Dart files in your project for classes annotated with `@MultiBinding()`.
+The generator scans **all Dart files** in your `lib/` directory for classes annotated with `@MultiBinding()`. You don't need to import them manually - the generator finds them automatically.
 
 ### 2. Collection
 
 For each annotated class, it:
 - Extracts all implemented interfaces
 - Groups implementations by interface type
-- Extracts scope information from `@injectable` annotations
 - Validates that classes are not abstract and implement at least one interface
 
-### 3. Module Generation
+### 3. Generation
 
-Generates injectable modules for each interface:
-- One module per scope combination
-- Modules provide `List<T>` containing all implementations
-- Creates merged accessor functions when multiple scopes exist
+Generates GetIt extension methods that:
+- Register each implementation under its interface type
+- Create factories for `Iterable<T>` using `getAll<T>()`
 
 ### Example Input
 
 ```dart
 @MultiBinding()
 @injectable
-class EmailService implements Service {}
+class EmailService implements NotificationService {}
 
 @MultiBinding()
-@singleton(scope: Environment.test)
-class TestService implements Service {}
+@injectable
+class PushService implements NotificationService {}
+
+@MultiBinding()
+@injectable
+class SMSService implements NotificationService {}
 ```
 
 ### Example Output
 
 ```dart
 // GENERATED CODE - DO NOT MODIFY MANUALLY
-@module
-abstract class ServiceBindingsModule {
-  @singleton
-  List<Service> get multiBindings => [
-    getIt<EmailService>(),
-  ];
-}
-
-@module
-abstract class ServiceBindingsModule_test {
-  @singleton
-  List<Service> get multiBindings => [
-    getIt<TestService>(),
-  ];
-}
-
-// Merged accessor for all scopes
-List<Service> serviceMultibindings() {
-  final List<Service> result = [];
-  result.addAll(getIt<ServiceBindingsModule>().multiBindings);
-  result.addAll(getIt<ServiceBindingsModule_test>().multiBindings);
-  return result;
+extension ConfigureMultibindings on GetIt {
+  void configureMultibindings() {
+    // Register multibindings for NotificationService
+    registerLazySingleton<NotificationService>(() => getIt<EmailService>());
+    registerLazySingleton<NotificationService>(() => getIt<PushService>());
+    registerLazySingleton<NotificationService>(() => getIt<SMSService>());
+    
+    // Register factory for Iterable<NotificationService> using getAll
+    registerFactory<Iterable<NotificationService>>(() => getAll<NotificationService>());
+  }
 }
 ```
 
@@ -104,63 +97,46 @@ dart run build_runner watch
 
 - Automatic interface detection
 - Multiple interface support per class
-- Scope-aware generation
 - Type-safe generated code
-- Injectable module compatibility
-- Merged accessor generation
-- Full library path preservation
+- Auto-discovery of all files in `lib/`
+- Respects original registration strategy (factory vs singleton)
+- Uses GetIt's native `getAll<T>()` functionality
 
 ### ⚠️ Limitations
 
 - Only scans classes annotated with `@MultiBinding`
-- Requires `@injectable` annotations for scope detection
+- Requires `@injectable` annotations for registration
 - Abstract classes are rejected
 - Classes without interfaces are rejected
 
 ## Generated Files
 
 The generator creates `.multibindings.dart` files alongside your source files. These files:
-
 - Are regenerated on each build
 - Should not be manually edited
-- Are included in your project automatically
-- Can be imported with `part` directive or as separate files
-
-## Scope Extraction
-
-The generator extracts scope information from:
-- `@singleton(scope: ...)`
-- `@lazySingleton(scope: ...)`
-- `@factory(scope: ...)`
-- `@singleton(environment: ...)`
-- `@lazySingleton(environment: ...)`
-- `@factory(environment: ...)`
-
-The scope name is extracted from the enum value's `name` property.
-
-## Error Handling
-
-The generator provides clear error messages for:
-
-- Abstract classes: "Abstract classes cannot be annotated with @MultiBinding"
-- Missing interfaces: "Classes annotated with @MultiBinding must implement at least one interface"
-- Invalid annotations: Type errors for non-classes
+- Are imported as separate files (not part files)
 
 ## Technical Details
 
 ### Build Integration
 
-- Uses `source_gen` for code generation
+- Uses `build` package for code generation
 - Compatible with `build_runner`
-- Runs before `injectable_generator` (via build configuration)
-- Uses `LibraryBuilder` for file generation
+- Runs before `injectable_generator` (via `runs_before` in `build.yaml`)
+- Uses custom `Builder` for file generation
 
 ### Type Handling
 
 - Preserves full qualified type names
-- Handles generic types
-- Maintains library boundaries
-- Generates correct imports
+- Generates correct imports for all types
+- Handles multiple interfaces per class
+
+### Registration Strategy
+
+The generator uses `registerLazySingleton` for multibindings. This ensures:
+- The original service instance is reused (respects `@singleton` vs `@factory`)
+- No duplicate instances are created
+- Efficient GetIt management with lazy initialization
 
 ## Troubleshooting
 
@@ -179,12 +155,20 @@ Ensure your classes are:
 - Annotated with `@MultiBinding()`
 - Not abstract
 - Implement at least one interface
+- File name contains 'app', 'main', or 'di' (where @InjectableInit is)
 
-### Scope issues
+### Circular dependency errors
 
-Verify that scope annotations match GetIt's expected format:
+Make sure `configureMultibindings()` is called **after** `getIt.init()`:
+
 ```dart
-@singleton(scope: MyEnvironment.production)
+@InjectableInit()
+void configureDependencies() {
+  getIt.init();  // Must come first
+  
+  getIt.enableRegisteringMultipleInstancesOfOneType();
+  getIt.configureMultibindings();
+}
 ```
 
 ## Contributing
@@ -199,4 +183,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - [injectable_multibindings](../injectable_multibindings) - Main package
 - [injectable](https://pub.dev/packages/injectable) - Dependency injection framework
-- [source_gen](https://pub.dev/packages/source_gen) - Code generation library
+- [build](https://pub.dev/packages/build) - Code generation library

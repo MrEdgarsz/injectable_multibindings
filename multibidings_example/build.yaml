@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      injectable_multibindings_generator:multibinding:
+        enabled: true
+      injectable_generator:injectable_builder:
+        enabled: true
+      injectable_generator:injectable_config_builder:
+        enabled: true
+
