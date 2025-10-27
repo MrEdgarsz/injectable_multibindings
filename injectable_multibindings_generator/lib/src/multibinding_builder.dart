@@ -59,9 +59,43 @@ class MultibindingBuilder implements Builder {
     return false;
   }
 
+  String _extractRegistrationStrategy(ClassElement element) {
+    // Look for @injectable annotation
+    for (final annotation in element.metadata) {
+      final annotationValue = annotation.computeConstantValue();
+      if (annotationValue == null) continue;
+
+      final annotationElement = annotationValue.type?.element;
+      if (annotationElement == null) continue;
+
+      final annotationName = annotationElement.name?.toLowerCase() ?? '';
+
+      // Check for factory (explicit)
+      if (annotationName == 'factory') {
+        return 'Factory';
+      }
+
+      // Check for singleton
+      if (annotationName == 'singleton') {
+        return 'Singleton';
+      }
+
+      // Check for lazySingleton
+      if (annotationName == 'lazysingleton') {
+        return 'LazySingleton';
+      }
+
+      // Check for injectable (defaults to factory)
+      if (annotationName == 'injectable') {
+        return 'Factory';
+      }
+    }
+    return 'Factory'; // Default to factory
+  }
+
   Future<String> _generateMultibindings(BuildStep buildStep) async {
     // Collect all multibinding classes from all libraries
-    final multibindingClasses = <ClassElement>[];
+    final multibindingClasses = <_MultibindingClass>[];
 
     // Scan ALL Dart files in the lib directory, not just imports
     final allAssets = await buildStep.findAssets(Glob('lib/**/*.dart')).toList();
@@ -81,7 +115,9 @@ class MultibindingBuilder implements Builder {
               if (annotationElement == null) continue;
 
               if (typeChecker.isExactly(annotationElement)) {
-                multibindingClasses.add(element);
+                // Extract registration strategy from @injectable annotation
+                final strategy = _extractRegistrationStrategy(element);
+                multibindingClasses.add(_MultibindingClass(element: element, strategy: strategy));
               }
             }
           }
@@ -97,9 +133,10 @@ class MultibindingBuilder implements Builder {
     }
 
     // Group by interface type
-    final bindingsByType = <String, List<String>>{};
+    final bindingsByType = <String, List<_ImplementationInfo>>{};
 
-    for (final classElement in multibindingClasses) {
+    for (final bindingClass in multibindingClasses) {
+      final classElement = bindingClass.element;
       final implementedTypes =
           classElement.allSupertypes
               .where((type) => type.element != classElement)
@@ -114,13 +151,14 @@ class MultibindingBuilder implements Builder {
         if (!bindingsByType.containsKey(typeName)) {
           bindingsByType[typeName] = [];
         }
-        bindingsByType[typeName]!.add(className);
+        bindingsByType[typeName]!.add(_ImplementationInfo(className: className, strategy: bindingClass.strategy));
       }
     }
 
     // Collect imports
     final imports = <String>{};
-    for (final element in multibindingClasses) {
+    for (final bindingClass in multibindingClasses) {
+      final element = bindingClass.element;
       final source = element.source;
       final uri = source.uri;
       if (uri.isScheme('package')) {
@@ -196,8 +234,9 @@ class MultibindingBuilder implements Builder {
       buffer.writeln('    // Register multibindings for $interfaceName');
       for (final impl in implementations) {
         // Register each implementation type as the interface type
-        // GetIt will delegate to the original registration (factory or singleton)
-        buffer.writeln('    registerLazySingleton<$interfaceName>(() => getIt<${impl}>());');
+        // Respect the original registration strategy
+        final strategy = impl.strategy;
+        buffer.writeln('    register$strategy<$interfaceName>(() => getIt<${impl.className}>());');
       }
 
       // Register factory for Iterable<T> using getAll
@@ -210,4 +249,18 @@ class MultibindingBuilder implements Builder {
 
     return buffer.toString();
   }
+}
+
+class _MultibindingClass {
+  final ClassElement element;
+  final String strategy;
+
+  _MultibindingClass({required this.element, required this.strategy});
+}
+
+class _ImplementationInfo {
+  final String className;
+  final String strategy;
+
+  _ImplementationInfo({required this.className, required this.strategy});
 }
